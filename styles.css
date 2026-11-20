@@ -10,3 +10,10 @@
 footer{display:flex;justify-content:space-between;gap:12px;margin-top:28px;padding:18px 2px;border-top:1px solid #ffffff15;color:var(--muted);font-size:10px;letter-spacing:.08em}
 @media(max-width:650px){.shell{padding-top:30px}.modules{grid-template-columns:repeat(2,1fr);gap:9px}.module{min-height:120px;padding:13px}.data-grid{grid-template-columns:1fr}.section-head{margin-top:30px}.muted{font-size:10px}.module-page-heading{padding:20px 16px}.module-page-heading .tag{right:14px;top:18px}}
 @media(max-width:360px){.modules{grid-template-columns:1fr}.module{min-height:90px}}
+.router-form{display:grid;gap:10px;padding:20px;border:1px solid var(--line);border-radius:16px;background:#10243a}
+.router-form label{font-size:12px;font-weight:700;color:#c8d9e8;margin-top:5px}
+.router-form input,.router-form select{width:100%;min-height:46px;padding:11px 13px;border:1px solid #355675;border-radius:10px;background:#091a2a;color:var(--text);font:inherit;font-size:15px;outline:none}
+.router-form input:focus,.router-form select:focus{border-color:var(--blue);box-shadow:0 0 0 3px #4da3ff22}
+.action-button{min-height:48px;margin-top:10px;padding:12px 16px;border:0;border-radius:11px;background:linear-gradient(100deg,#1677c8,#169eae);color:white;font:700 14px inherit;cursor:pointer}
+.action-button:active{transform:scale(.99)}
+.form-status{margin:4px 0 0;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
