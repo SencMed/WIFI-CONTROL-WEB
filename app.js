@@ -6,14 +6,25 @@ const content = {
   security: {title:"Seguridad", eyebrow:"PROTECCIÓN", tiles:[["Cifrado Wi-Fi","No consultado"],["WPS","No consultado"],["Firewall","No consultado"],["Revisión","Pendiente"]], note:"No se recomienda cambiar contraseñas ni opciones de seguridad desde esta maqueta. Primero validaremos la compatibilidad del router."},
   maintenance: {title:"Mantenimiento", eyebrow:"SISTEMA", tiles:[["Versión web","0.1.0"],["Proyecto","WIFI CONTROL WEB"],["Conexión con router","No configurada"],["Estado","Prototipo visual"]], note:"Esta versión web es independiente de WIFI CONTROL Flutter. Sus cambios no afectan el proyecto original."}
 };
-const panel = document.querySelector("#panel");
-document.querySelectorAll(".module").forEach(button => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".module").forEach(item => item.classList.toggle("active", item === button));
-    const item = content[button.dataset.panel];
-    panel.innerHTML = `<div class="panel-heading"><div><p class="eyebrow">${item.eyebrow}</p><h2>${item.title}</h2></div><span class="tag">DEMO</span></div><div class="data-grid">${item.tiles.map(([label,value])=>`<article class="data-tile"><span>${label}</span><strong>${value}</strong></article>`).join("")}</div><div class="notice">${item.note}</div>`;
-  });
-});
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+const homeView=document.querySelector("#home-view");
+const moduleView=document.querySelector("#module-view");
+const moduleContent=document.querySelector("#module-content");
+function showHome(){
+  moduleView.hidden=true;
+  homeView.hidden=false;
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function showModule(key){
+  const item=content[key];
+  if(!item)return;
+  moduleContent.innerHTML=`<div class="module-page-heading"><p class="eyebrow">${item.eyebrow}</p><h1>${item.title}</h1><span class="tag">DEMO</span></div><div class="data-grid">${item.tiles.map(([label,value])=>`<article class="data-tile"><span>${label}</span><strong>${value}</strong></article>`).join("")}</div><div class="notice"><b>Información:</b> ${item.note}</div>`;
+  homeView.hidden=true;
+  moduleView.hidden=false;
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+document.querySelectorAll(".module").forEach(button=>button.addEventListener("click",()=>showModule(button.dataset.panel)));
+document.querySelector("#back-home").addEventListener("click",showHome);
+document.querySelector("#brand-home").addEventListener("click",event=>{event.preventDefault();showHome();});
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
 }
