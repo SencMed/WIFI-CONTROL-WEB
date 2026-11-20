@@ -1,0 +1,10 @@
+{
+  "name": "WIFI CONTROL WEB",
+  "short_name": "WIFI CONTROL",
+  "description": "Panel web multiplataforma de WIFI CONTROL",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#091522",
+  "theme_color": "#10243a",
+  "icons": [{"src":"assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
