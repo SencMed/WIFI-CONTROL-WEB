@@ -3,6 +3,7 @@ const content = {
   devices: {title:"Dispositivos", eyebrow:"EQUIPOS DE LA RED", tiles:[["Escaneo de red","No disponible en navegador"],["Equipos conectados al router","Requiere acceso autorizado del router"],["Dirección MAC","Protegida por el sistema móvil"],["Detección local","Limitada por iOS y Android"]], note:"El navegador no puede escanear libremente la red local ni leer la lista privada de clientes del módem. Esa lectura se añadirá cuando exista un método compatible con cada router."},
   wifi: {title:"Wi-Fi", eyebrow:"RED INALÁMBRICA", tiles:[["Tipo de conexión","Según navegador"],["Red Wi-Fi (SSID)","Protegida por el sistema"],["Banda Wi-Fi","No expuesta por todos los móviles"],["Seguridad","Consultar en el router"]], note:"Por privacidad, iOS y muchos navegadores no permiten leer el nombre, contraseña, banda o configuración Wi-Fi. No se modifica ninguna opción."},
   speed: {title:"Velocidad", eyebrow:"PRUEBA REAL DESDE EL TELÉFONO", interactiveSpeed:true},
+  ping: {title:"Ping extendido", eyebrow:"LATENCIA Y DISPONIBILIDAD", interactivePing:true},
   security: {title:"Seguridad", eyebrow:"PROTECCIÓN", tiles:[["Panel del router","Acceso manual"],["Contraseña Wi-Fi","No consultada"],["WPS / Firewall","No consultados"],["Cambios automáticos","Desactivados"]], note:"No cambiaremos contraseñas ni opciones de seguridad. La revisión de ajustes dependerá del acceso de solo lectura que permita cada modelo."},
   maintenance: {title:"MANTENIMIENTO", eyebrow:"SISTEMA", tiles:[["Versión web","0.3.0"],["Proyecto","WIFI CONTROL WEB"],["Compatibilidad","iPhone y Android"],["Proyecto Flutter","Independiente e intacto"]], note:"Esta edición web se ejecuta directamente en el navegador. Las mediciones de velocidad usan servidores públicos y requieren conexión a internet."}
 };
@@ -54,7 +55,7 @@ function updatePhoneInfo(){
 }
 function showModule(key){
   const item=content[key];if(!item)return;
-  let body=item.interactive?connectionMarkup():item.interactiveSpeed?speedMarkup():`<div class="data-grid">${item.tiles.map(([label,value])=>`<article class="data-tile"><span>${label}</span><strong>${value}</strong></article>`).join("")}</div><div class="notice"><b>Información:</b> ${item.note}</div>`;
+  let body=item.interactive?connectionMarkup():item.interactiveSpeed?speedMarkup():item.interactivePing?pingMarkup():`<div class="data-grid">${item.tiles.map(([label,value])=>`<article class="data-tile"><span>${label}</span><strong>${value}</strong></article>`).join("")}</div><div class="notice"><b>Información:</b> ${item.note}</div>`;
   moduleContent.innerHTML=`<div class="module-page-heading"><p class="eyebrow">${item.eyebrow}</p><h1>${item.title}</h1><span class="tag">v0.3.0</span></div>${body}`;
   homeView.hidden=true;moduleView.hidden=false;
   if(item.interactive){
@@ -70,10 +71,57 @@ function showModule(key){
     });
     window.addEventListener("online",updatePhoneInfo);window.addEventListener("offline",updatePhoneInfo);
   }
-  if(item.interactiveSpeed)setupSpeedTest();
+  if(item.interactiveSpeed)setupSpeedTest();\n  if(item.interactivePing)setupExtendedPing();
   window.scrollTo({top:0,behavior:"smooth"});
 }
-function setupSpeedTest(){
+
+function pingMarkup(){
+  return '<div class="router-form"><label for="ping-target">Destino de prueba</label><select id="ping-target"><option value="cloudflare">Cloudflare DNS · 1.1.1.1</option><option value="google">Google DNS · 8.8.8.8</option><option value="quad9">Quad9 DNS · 9.9.9.9</option></select><label for="ping-count">Cantidad de pruebas</label><select id="ping-count"><option value="10">10 pruebas</option><option value="50">50 pruebas</option><option value="100">100 pruebas</option><option value="0">Continuo (hasta detener)</option></select><button class="action-button" id="ping-start" type="button">Iniciar ping extendido</button><div class="data-grid"><article class="data-tile"><span>Enviadas</span><strong id="ping-sent">0</strong></article><article class="data-tile"><span>Respuestas</span><strong id="ping-received">0</strong></article><article class="data-tile"><span>Perdidas</span><strong id="ping-lost">0 (0%)</strong></article><article class="data-tile"><span>Promedio</span><strong id="ping-avg">—</strong></article><article class="data-tile"><span>Mínimo / Máximo</span><strong id="ping-minmax">—</strong></article><article class="data-tile"><span>Jitter estimado</span><strong id="ping-jitter">—</strong></article></div><p class="form-status" id="ping-status" role="status">Listo. Esta prueba mide solicitudes HTTPS, no ping ICMP.</p><div class="data-tile"><span>Registro de respuestas</span><pre id="ping-log" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font:12px/1.6 ui-monospace,monospace;max-height:220px;overflow:auto">Esperando inicio…</pre></div></div><div class="notice"><b>Nota técnica:</b> Safari y Chrome no permiten enviar paquetes ICMP desde una página web. Esta herramienta mide tiempos de respuesta HTTPS de servicios DNS; no es ping ICMP directo a la IP.</div>';
+}
+let pingStopRequested=false;
+function setupExtendedPing(){
+  const el=id=>document.getElementById(id),button=el("ping-start");
+  button.addEventListener("click",async()=>{
+    if(button.dataset.running==="1"){pingStopRequested=true;button.textContent="Deteniendo…";return;}
+    if(!navigator.onLine){el("ping-status").textContent="El teléfono aparece sin conexión a internet.";return;}
+    const targets={
+      cloudflare:{url:"https://cloudflare-dns.com/dns-query?name=example.com&type=A",label:"Cloudflare DNS · 1.1.1.1"},
+      google:{url:"https://dns.google/resolve?name=example.com&type=A",label:"Google DNS · 8.8.8.8"},
+      quad9:{url:"https://dns.quad9.net:5053/dns-query?name=example.com&type=A",label:"Quad9 DNS · 9.9.9.9"}
+    };
+    const target=targets[el("ping-target").value],limit=Number(el("ping-count").value),samples=[],logs=[];
+    let sent=0,received=0;pingStopRequested=false;button.dataset.running="1";button.textContent="Detener prueba";
+    el("ping-status").textContent="Consultando "+target.label+"…";
+    const render=()=>{
+      const sorted=[...samples].sort((a,b)=>a-b),lost=sent-received;
+      const avg=samples.length?samples.reduce((a,b)=>a+b,0)/samples.length:null;
+      const diffs=samples.slice(1).map((v,i)=>Math.abs(v-samples[i]));
+      el("ping-sent").textContent=sent;el("ping-received").textContent=received;
+      el("ping-lost").textContent=lost+" ("+(sent?(lost/sent*100).toFixed(1):"0")+"%)";
+      el("ping-avg").textContent=avg===null?"—":avg.toFixed(1)+" ms";
+      el("ping-minmax").textContent=sorted.length?sorted[0].toFixed(1)+" / "+sorted[sorted.length-1].toFixed(1)+" ms":"—";
+      el("ping-jitter").textContent=diffs.length?(diffs.reduce((a,b)=>a+b,0)/diffs.length).toFixed(1)+" ms":"—";
+      el("ping-log").textContent=logs.slice(-30).join("\n");
+    };
+    try{
+      while(!pingStopRequested&&(limit===0||sent<limit)){
+        sent++;const url=target.url+"&_="+Date.now()+"-"+sent,controller=new AbortController();
+        const timer=setTimeout(()=>controller.abort(),7000),begin=performance.now();
+        try{
+          const response=await fetch(url,{cache:"no-store",headers:{"accept":"application/dns-json"},signal:controller.signal});
+          if(!response.ok)throw new Error("HTTP "+response.status);
+          await response.text();const ms=performance.now()-begin;samples.push(ms);received++;
+          logs.push("#"+sent+" · "+ms.toFixed(1)+" ms · respuesta OK");
+        }catch(error){logs.push("#"+sent+" · sin respuesta ("+(error.name==="AbortError"?"tiempo agotado":error.message)+")");}
+        finally{clearTimeout(timer);}
+        render();
+        if(!pingStopRequested&&(limit===0||sent<limit))await new Promise(resolve=>setTimeout(resolve,1000));
+      }
+      el("ping-status").textContent=pingStopRequested?"Prueba detenida por el usuario.":"Prueba finalizada: "+sent+" intentos.";
+    }finally{button.dataset.running="0";button.textContent="Iniciar ping extendido";pingStopRequested=false;}
+  });
+}
+\nfunction setupSpeedTest(){
   const $=id=>document.getElementById(id);
   const button=$("run-speed"),status=$("speed-status"),state=$("speed-state");
   button.addEventListener("click",async()=>{
